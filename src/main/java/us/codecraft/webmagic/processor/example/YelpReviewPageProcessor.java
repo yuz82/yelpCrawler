@@ -40,13 +40,31 @@ public class YelpReviewPageProcessor implements PageProcessor{
 	public List<Review> reviews = new ArrayList();
 	public Business business;
 	public String business_id;
+	public File file;
 	public static HashSet<String> failedIds = new HashSet();
 	public static HashSet<String> allIds = new HashSet();
 
 	// Customized Parameters
-	public static int startNum = 0;
-	public static int endNum = 2000;
-	public static int timespan = 1000; // 1s
+	public static int startNum;
+	public static int endNum;
+	public static int timespan = 500; 
+	public static boolean readFailed;  // true->all doc, false->inspection doc
+
+	// For vm
+//	public static String path = "/root/WebMagic/data/";
+//	public static String inputDir = "/root/WebMagic/data"; // for vm
+	
+	// For AWS EC2
+	public static String path = "/home/ec2-user/yelp/";
+	public static String inputDir = "/home/ec2-user/yelp"; 
+	
+	// For test
+	// public static String inputDir = "/Users/yanyanzhou/Downloads/yelp";
+	// public static String path = "/Users/yanyanzhou/Downloads/yelp/test.json"; 
+
+
+	public static String inspectionFile = "/BusinessID_FoodInspection.txt";
+	public static String allBizFile = "/FinalAllBusinessID.txt";
 
 	@Override
 	public void process(Page page) {
@@ -79,8 +97,6 @@ public class YelpReviewPageProcessor implements PageProcessor{
 			reviews.add(review);
 			page.putField(id, review);
 		}
-                
-                //page.getRequest()
 
 	}
 
@@ -89,9 +105,28 @@ public class YelpReviewPageProcessor implements PageProcessor{
 		return site;
 	}
 
+	public static void checkFile(File checkFile, HashSet<String> hs)
+			throws IOException {
+		BufferedReader reader = new BufferedReader(new FileReader(checkFile));
+		String str = new String();
+		while ((str = reader.readLine()) != null) {
+			hs.add(str);
+		}
+		reader.close();
+	}
+
 	public static void main(String[] args) throws FileNotFoundException,
-			IOException {          
-            
+			IOException {
+		
+		/**
+		 * read arguments
+		 */
+		startNum = Integer.parseInt(args[0]);
+		endNum = Integer.parseInt(args[1]);
+		readFailed = Boolean.parseBoolean(args[2]);
+		path += (readFailed ? "allBiz" : "badBiz") + startNum + "-" + endNum
+				+ ".json";
+
 		/**
 		 * local
 		 */
@@ -111,19 +146,6 @@ public class YelpReviewPageProcessor implements PageProcessor{
 		// {"104.236.25.172", "80", "http"};
 		// httpProxies.add(s1); httpProxies.add(s2);
 
-		// local
-		// write to json file
-//		String path = "/root/WebMagic/data/allBiz" + startNum + "-" + endNum + ".json";
-//		String path = "/home/ec2-user/yelp/badBiz" + startNum + "-" + endNum + ".json";
-		 String path = "/Users/yuezhao/Desktop/spider/test.json";  // test
-
-//		String inputDir = "/root/WebMagic/data";  // for vm
-//		String inputDir = "/home/ec2-user/yelp";  // for AWS EC2
-		 String inputDir = "/Users/yuezhao/Desktop/spider/input";  // test
-
-		String inspectionFile = "/BusinessID_FoodInspection.txt";
-		String allBizFile = "/FinalAllBusinessID.txt";
-
 		File output = new File(path);
 		if (!output.exists()) {
 			output.createNewFile();
@@ -136,48 +158,37 @@ public class YelpReviewPageProcessor implements PageProcessor{
 			// Files.write(Paths.get(path), start.getBytes(),
 			// StandardOpenOption.APPEND);
 
+			File failedFile = new File(inputDir + inspectionFile);
+			File allFile = new File(inputDir + allBizFile);
+			File file;
+
 			/**
 			 * Read failed file from csv file
 			 */
-//			File failedFile = new File(inputDir + inspectionFile);
-//			BufferedReader reader = new BufferedReader(new FileReader(
-//					failedFile));
-//			String str = new String();
-//			while ((str = reader.readLine()) != null) {
-//				failedIds.add(str);
-//			}
-//			File file = new File(inputDir + allBizFile); // allBizFile
-//			boolean flag = false;
-			
-			/**
-			 * read all files from csv file
-			 */
-			File allFile = new File(inputDir + allBizFile);
-			BufferedReader reader = new BufferedReader(new FileReader(allFile));
-			String str = new String();
-			while ((str = reader.readLine()) != null) {
-				allIds.add(str);
+			if (readFailed) {
+				checkFile(failedFile, failedIds);
+				file = allFile; // allBizFile
+			} else {
+				checkFile(allFile, allIds);
+				file = failedFile;
 			}
-			File file = new File(inputDir + inspectionFile); 
-			boolean flag = true;
-			
-			
+
 			BufferedReader br = new BufferedReader(new FileReader(file));
 			String line;
 			int count = 0;
 
-//			while (count++ < startNum && (line = br.readLine()) != null) {
-//				continue;
-//			}
+			while (count++ < startNum && (line = br.readLine()) != null) {
+				continue;
+			}
 
-			while (count++ < endNum && (line = br.readLine()) != null) { 
-																			
-				if(flag){ //read all files
-					if(allIds.contains(line)){
+			while (count++ <= endNum && (line = br.readLine()) != null) {
+
+				if (readFailed) { // read all files
+					if (allIds.contains(line)) {
 						continue;
 					}
 				}
-				
+
 				YelpReviewPageProcessor pp = new YelpReviewPageProcessor();
 
 				Random rand = new Random();
@@ -185,7 +196,8 @@ public class YelpReviewPageProcessor implements PageProcessor{
 				site.setSleepTime(rand.nextInt(timespan) + 0);
 
 				pp.business_id = line;
-				System.out.println(count + " " +pp.business_id);
+				System.out.println("=== " + (count - 2) + " " + pp.business_id
+						+ " ===");
 
 				/**
 				 * test site
@@ -221,4 +233,5 @@ public class YelpReviewPageProcessor implements PageProcessor{
 		}
 
 	}
+
 }

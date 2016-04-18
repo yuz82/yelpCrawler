@@ -47,7 +47,7 @@ public class MyFilePipeline extends FilePersistentBase implements Pipeline {
                         getFile(path), true),"UTF-8"));
                 //System.out.println("start write");
                 for (Map.Entry<String, Review> entry : resultItems.getAll().entrySet()) {
-                    Review r = entry.getValue();
+                    Review r = (Review)entry.getValue();
                     /**
                      * Json format
                      */
@@ -79,10 +79,14 @@ public class MyFilePipeline extends FilePersistentBase implements Pipeline {
                             "\"waiterService\": \"" + r.getBiz().getWaiterService() + "\""+ spliter +
                             "\"caters\": \"" + r.getBiz().getCaters() + "\""+ spliter 
                     );
-                    if(failedIds.contains(r.getBiz().getBid())){
-                        printWriter.print("\"failed\": \"" + "1" +"\""+spliter);
+                    if(YelpReviewPageProcessor.readFailed){
+	                    if(YelpReviewPageProcessor.failedIds.contains(r.getBiz().getBid())){
+	                        printWriter.print("\"failed\": \"" + "1" +"\""+spliter);
+	                    }else{
+	                        printWriter.print("\"failed\": \"" + "0" +"\""+spliter);
+	                    }
                     }else{
-                        printWriter.print("\"failed\": \"" + "0" +"\""+spliter);
+                    	printWriter.print("\"failed\": \"" + "1" +"\""+spliter);
                     }
                     printWriter.println("\"text\": \"" + r.getText()+"\""+ "}" + spliter);
 
